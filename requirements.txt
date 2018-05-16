@@ -1,3 +1,7 @@
 python-barcode
 weasyprint
 flask
+click
+twisted
+sqlsoup
+sqlalchemy
