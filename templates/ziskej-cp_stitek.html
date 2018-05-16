@@ -1,0 +1,227 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        html,
+        body {
+            width: 210mm;
+            height: 297mm;
+            margin: 0;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .label {
+            width: 105mm;
+            height: 148mm;
+            margin: 0cm;
+            position: relative;
+        }
+
+        .pos1 {
+            position: absolute;
+            top: 0mm;
+            left: 0mm;
+        }
+
+        .pos2 {
+            position: absolute;
+            top: 0mm;
+            left: 105mm;
+        }
+
+        .pos3 {
+            position: absolute;
+            top: 148mm;
+            left: 0mm
+        }
+
+        .pos4 {
+            position: absolute;
+            top: 148mm;
+            left: 105mm;
+        }
+
+        .bar-code-row {
+            position: absolute;
+            top: 0mm;
+            left: 0mm;
+            width: 105mm;
+            padding-top: 9mm;
+        }
+
+        .sender-row {
+            position: absolute;
+            top: 50mm;
+            left: 0mm;
+            width: 105mm;
+        }
+
+        .addressee-row {
+            position: absolute;
+            top: 100mm;
+            left: 0mm;
+            width: 105mm;
+        }
+
+        .bar-code-img {
+            width: 100%;
+            height: 25mm;
+        }
+
+        .delivery {
+            width: 30%;
+            float: left;
+            text-align: center;
+            padding-left: 9mm;
+        }
+
+        .bar-code {
+            width: 70%;
+            float: right;
+            text-align: right;
+            padding-right: 8mm;
+            padding-left: 8mm;
+        }
+
+        .bar-code-text {
+            text-align: center;
+            font-size: 5mm;
+        }
+
+        .delivery-dr {
+            font-size: 10mm;
+        }
+
+        .delivery-type {
+            width: 20mm;
+            font-size: 15mm;
+            font-weight: bold;
+            background-color: black;
+            color: white;
+        }
+
+        .address {
+            padding-left: 9mm;
+            padding-right: 9mm;
+        }
+
+        .address-header {
+            font-size: 3mm;
+        }
+
+        .address-address {
+            padding-left: 5mm;
+            font-size: 4mm;
+        }
+
+        .address-row {
+            margin: 0;
+            margin-top: 1.5mm;
+        }
+
+        .row {
+            padding-top: 9mm;
+            display: flex;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="label pos1">
+        <div class="bar-code-row">
+            <div class="delivery">
+                <div class="delivery-dr">
+                    DR
+                </div>
+                <span class="delivery-type">
+                    &nbsp;A&nbsp;
+                </span>
+            </div>
+            <div class="bar-code">
+                <img class="bar-code-img" src="data:image/svg+xml;base64,{{ barcode1_barcode }}" />
+                <div class="bar-code-text">
+                    {{ barcode1_text }}
+                </div>
+            </div>
+        </div>
+        <div class="sender-row">
+            <div class="address">
+                <div class="address-header">
+                    Odesílatel/Sender:
+                </div>
+                <div class="address-address">
+                {% for row in sender1 %}
+                    <p class="address-row">{{ row }}</p>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="addressee-row">
+            <div class="address">
+                <div class="address-header">
+                    Adresát/Addressee:
+                </div>
+                <div class="address-address">
+                {% for row in addressee1 %}
+                    <p class="address-row">{{ row }}</p>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="label pos2">
+        <div class="bar-code-row">
+            <div class="delivery">
+                <div class="delivery-dr">
+                    DR
+                </div>
+                <span class="delivery-type">
+                    &nbsp;A&nbsp;
+                </span>
+            </div>
+            <div class="bar-code">
+                <img class="bar-code-img" src="data:image/svg+xml;base64,{{ barcode2_barcode }}" />
+                <div class="bar-code-text">
+                    {{ barcode2_text }}
+                </div>
+            </div>
+        </div>
+        <div class="sender-row">
+            <div class="address">
+                <div class="address-header">
+                    Odesílatel/Sender:
+                </div>
+                <div class="address-address">
+                {% for row in sender2 %}
+                    <p class="address-row">{{ row }}</p>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="addressee-row">
+            <div class="address">
+                <div class="address-header">
+                    Adresát/Addressee:
+                </div>
+                <div class="address-address">
+                {% for row in addressee2 %}
+                    <p class="address-row">{{ row }}</p>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
