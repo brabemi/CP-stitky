@@ -1,6 +1,8 @@
 import base64
+import hashlib
 import io
 import os
+import time
 from configparser import ConfigParser
 from sys import stderr
 
@@ -17,32 +19,6 @@ from twisted.web.server import Site
 from twisted.web.wsgi import WSGIResource
 from weasyprint import HTML
 
-
-PKG_PADDING = 9
-PKG_PREFIX = 'DR'
-PKG_POSTFIX = 'M'
-SUBMITTER_ID = '54'
-
-PKG_S2D = 1234566
-PKG_D2S = 1234567
-
-SOURCE = [
-    'Národní technická knihovna',
-    'Technická 2710/6',
-    '160 80 Praha 6-Dejvice',
-    'Česká Republika',
-    '+420 232 002 535',
-]
-
-DEST = [
-    'Moravská zemská knihovna',
-    'Kounicova 65a',
-    '601 87 Brno-střed',
-    'Česká Republika',
-    '+420 541 646 201',
-]
-
-
 def calculate_pkg_checksum(number):
     FACTORS = [1, 8, 6, 4, 2, 3, 5, 9, 7]
     checksum = 0
@@ -57,8 +33,15 @@ def calculate_pkg_checksum(number):
     if a == 0:
         return 5
 
-def create_pkg_id(prefix, postfix, submitter_id, pkg_number):
-    tmp_pkg_number = '{:0{}d}'.format(pkg_number, PKG_PADDING - len(submitter_id))
+def create_pkg_id(service, pkg_number):
+    prefix = service.prefix
+    postfix = service.postfix
+    modul = service.modul
+    offset = service.offset
+    padding = service.padding
+    submitter_id = '{}'.format(service.submitter_id)
+    pkg_number = (pkg_number % modul) + offset
+    tmp_pkg_number = '{:0{}d}'.format(pkg_number, padding - len(submitter_id))
     checksum = calculate_pkg_checksum(int('{}{}'.format(submitter_id, tmp_pkg_number)))
     return '{}{}{}{}{}'.format(
         prefix, submitter_id, tmp_pkg_number, checksum, postfix
@@ -82,9 +65,7 @@ def generate_pdf(src_to_dst, dst_to_src):
     data['sender2'] = dst_to_src['sender']
     data['addressee2'] = dst_to_src['addressee']
 
-    # html = HTML(string=HTML_TEMPLATE.format(**data))
     tmp_html = flask.render_template('ziskej-cp_stitek.html', **data)
-    # print(tmp_html)
     html = HTML(string=tmp_html)
 
     result = html.write_pdf()
@@ -96,23 +77,48 @@ def make_site(db, debug=False):
     app.secret_key = os.urandom(16)
     app.debug = debug
 
-    @app.route('/')
+    @app.route('/', methods=['GET', 'PUT', 'POST'])
     def postal_label():
+        request_data = flask.request.get_json(force=True)
+        print(request_data)
+        label_id = request_data['id'].encode('utf-8')
+        source = request_data['source-address']
+        dest = request_data['destination-address']
+        service = db.service.filter_by(name='ziskej-cp_stitek').one()
+        token = hashlib.sha256(label_id).hexdigest()
+        package = db.ziskej_packages.filter_by(token=token).all()
+
+        if len(package) < 1:
+            db.ziskej_packages.insert(token=token, added=time.time())
+            db.commit()
+            package = db.ziskej_packages.filter_by(token=token).all()
+
+        package = package[0]
+
+        pkg_id_base = 2 * package.id
+        pkg_id_d2s = pkg_id_base
+        pkg_id_s2d = pkg_id_base + 1
+
+
         src_to_dst = {
-            'package_id': create_pkg_id(PKG_PREFIX, PKG_POSTFIX, SUBMITTER_ID, PKG_S2D),
-            'sender': SOURCE,
-            'addressee': DEST,
+            'package_id': create_pkg_id(service, pkg_id_d2s),
+            'sender': source,
+            'addressee': dest,
         }
         dst_to_src = {
-            'package_id': create_pkg_id(PKG_PREFIX, PKG_POSTFIX, SUBMITTER_ID, PKG_D2S),
-            'sender': DEST,
-            'addressee': SOURCE,
+            'package_id': create_pkg_id(service, pkg_id_s2d),
+            'sender': dest,
+            'addressee': source,
         }
+
         pdf = generate_pdf(src_to_dst, dst_to_src)
-        response = flask.make_response(pdf)
-        response.headers.set('Content-Disposition', 'attachment', filename='stitek.pdf')
-        response.headers.set('Content-Type', 'application/pdf')
-        return response
+
+        return flask.send_file(
+            io.BytesIO(pdf),
+            mimetype='application/pdf',
+            as_attachment=True,
+            attachment_filename='stitek.pdf'
+        )
 
     return app
 
