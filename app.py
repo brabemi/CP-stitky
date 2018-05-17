@@ -81,6 +81,7 @@ def make_site(db, debug=False):
     def postal_label():
         request_data = flask.request.get_json(force=True)
         print(request_data)
+        time.sleep(5)
         label_id = request_data['id'].encode('utf-8')
         source = request_data['source-address']
         dest = request_data['destination-address']
