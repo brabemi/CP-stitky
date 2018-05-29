@@ -52,7 +52,7 @@ def gen_b64_barcode(code, text=''):
     barcode.generate('code128', code, output=byte_stream, text=text)
     return base64.b64encode(byte_stream.getvalue())
 
-def generate_pdf(src_to_dst, dst_to_src):
+def generate_pdf(src_to_dst, dst_to_src, twoway=True):
     data = {}
 
     data['barcode1_text'] = src_to_dst['package_id']
@@ -60,12 +60,16 @@ def generate_pdf(src_to_dst, dst_to_src):
     data['sender1'] = src_to_dst['sender']
     data['addressee1'] = src_to_dst['addressee']
 
-    data['barcode2_text'] = dst_to_src['package_id']
-    data['barcode2_barcode'] = gen_b64_barcode(data['barcode2_text']).decode("utf-8")
-    data['sender2'] = dst_to_src['sender']
-    data['addressee2'] = dst_to_src['addressee']
+    if twoway:
+        data['barcode2_text'] = dst_to_src['package_id']
+        data['barcode2_barcode'] = gen_b64_barcode(data['barcode2_text']).decode("utf-8")
+        data['sender2'] = dst_to_src['sender']
+        data['addressee2'] = dst_to_src['addressee']
 
-    tmp_html = flask.render_template('ziskej-cp_stitek.html', **data)
+        tmp_html = flask.render_template('ziskej-cp_stitek-twoway.html', **data)
+    else:
+        tmp_html = flask.render_template('ziskej-cp_stitek-oneway.html', **data)
+
     html = HTML(string=tmp_html)
 
     result = html.write_pdf()
@@ -77,11 +81,9 @@ def make_site(db, debug=False):
     app.secret_key = os.urandom(16)
     app.debug = debug
 
-    @app.route('/', methods=['GET', 'PUT', 'POST'])
-    def postal_label():
+    def create_postal_labe_data():
         request_data = flask.request.get_json(force=True)
         print(request_data)
-        time.sleep(5)
         label_id = request_data['id'].encode('utf-8')
         source = request_data['source-address']
         dest = request_data['destination-address']
@@ -100,7 +102,6 @@ def make_site(db, debug=False):
         pkg_id_d2s = pkg_id_base
         pkg_id_s2d = pkg_id_base + 1
 
-
         src_to_dst = {
             'package_id': create_pkg_id(service, pkg_id_d2s),
             'sender': source,
@@ -112,7 +113,24 @@ def make_site(db, debug=False):
             'addressee': source,
         }
 
-        pdf = generate_pdf(src_to_dst, dst_to_src)
+        return src_to_dst, dst_to_src
+
+    @app.route('/ziskej/twoway/', methods=['GET', 'PUT', 'POST'])
+    def postal_labe_twoway():
+        src_to_dst, dst_to_src = create_postal_labe_data()
+        pdf = generate_pdf(src_to_dst, dst_to_src, twoway=True)
+
+        return flask.send_file(
+            io.BytesIO(pdf),
+            mimetype='application/pdf',
+            as_attachment=True,
+            attachment_filename='stitek.pdf'
+        )
+
+    @app.route('/ziskej/oneway/', methods=['GET', 'PUT', 'POST'])
+    def postal_label_oneway():
+        src_to_dst, dst_to_src = create_postal_labe_data()
+        pdf = generate_pdf(src_to_dst, dst_to_src, twoway=False)
 
         return flask.send_file(
             io.BytesIO(pdf),
@@ -125,16 +143,18 @@ def make_site(db, debug=False):
 
 @click.command()
 @click.option(
-    '--config',
+    '-c', '--config', 'config_path',
     type=click.Path(
         exists=True, file_okay=True, dir_okay=False,
         writable=False, readable=True, resolve_path=True
     ),
+    default='config/config.ini',
     help='path to config file',
+    show_default=True
 )
-def main(config):
+def main(config_path):
     cfg = ConfigParser()
-    cfg.read(config)
+    cfg.read(config_path)
 
     # Start Twisted logging to console.
     log.startLogging(stderr)
